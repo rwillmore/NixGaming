@@ -32,10 +32,20 @@
   boot.kernelParams = [
     "nvidia_drm.modeset=1"
     "nvidia.NVreg_PreserveVideoMemoryAllocations=1"
+    "amd_pstate=active"
   ];
 
-  # CPU performance tuning for 7800X3D
-  powerManagement.cpuFreqGovernor = "performance";
+  # CPU governor: balanced desktop, GameMode boosts games
+  powerManagement.cpuFreqGovernor = "schedutil";
+
+  # Compressed RAM swap for smoother memory behavior
+  zramSwap.enable = true;
+  zramSwap.algorithm = "zstd";
+  zramSwap.memoryPercent = 25;
+  zramSwap.priority = 100;
+
+  # SSD trim
+  services.fstrim.enable = true;
 
   # Bootloader
   boot.loader.systemd-boot.enable = true;
@@ -75,9 +85,6 @@
     variant = "";
   };
 
-  # Disable KDE file indexing for performance
-  services.baloo.enable = false;
-
   # Printing
   services.printing.enable = true;
 
@@ -95,6 +102,10 @@
   # Steam + GameMode
   programs.steam.enable = true;
   programs.gamemode.enable = true;
+
+  # Controller/device support
+  hardware.steam-hardware.enable = true;
+  services.udev.packages = with pkgs; [ game-devices-udev-rules ];
 
   # Firefox
   programs.firefox.enable = true;
