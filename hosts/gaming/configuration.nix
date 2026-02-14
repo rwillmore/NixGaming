@@ -110,6 +110,10 @@
   # Firefox
   programs.firefox.enable = true;
 
+  # Chrome
+  programs.google-chrome.enable = true;
+
+
   # User
   users.users.rwillmore = {
     isNormalUser = true;
