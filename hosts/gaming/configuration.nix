@@ -26,7 +26,13 @@
     package = config.boot.kernelPackages.nvidiaPackages.latest;
   };
 
-  boot.kernelParams = [ "nvidia_drm.modeset=1" ];
+  # Enable NVIDIA persistence daemon
+  hardware.nvidia.nvidiaPersistenced = true;
+
+  boot.kernelParams = [
+    "nvidia_drm.modeset=1"
+    "nvidia.NVreg_PreserveVideoMemoryAllocations=1"
+  ];
 
   # CPU performance tuning for 7800X3D
   powerManagement.cpuFreqGovernor = "performance";
@@ -68,6 +74,9 @@
     layout = "us";
     variant = "";
   };
+
+  # Disable KDE file indexing for performance
+  services.baloo.enable = false;
 
   # Printing
   services.printing.enable = true;
