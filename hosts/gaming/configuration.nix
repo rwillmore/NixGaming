@@ -13,8 +13,8 @@
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
   nixpkgs.config.allowUnfree = true;
 
-  # Kernel (stable latest instead of XanMod for NVIDIA stability)
-  boot.kernelPackages = pkgs.linuxPackages_latest;
+  # Kernel (XanMod gaming kernel)
+  boot.kernelPackages = pkgs.linuxPackages_xanmod;
 
   # NVIDIA driver setup
   services.xserver.videoDrivers = [ "nvidia" ];
