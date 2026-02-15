@@ -8,3 +8,9 @@ result-*
 *.bak.*
 *.fixbak.*
 *.sessionbak.*
+result
+result-*
+*.bak
+*.bak.*
+*.fixbak.*
+*.sessionbak.*
