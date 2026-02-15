@@ -58,8 +58,16 @@
   };
 
   # Bootloader
-  boot.loader.systemd-boot.enable = true;
+  boot.loader.systemd-boot.enable = false;
   boot.loader.efi.canTouchEfiVariables = true;
+  boot.loader.grub.enable = false;
+
+  boot.loader.limine.enable = true;
+  boot.loader.limine.efiSupport = true;
+  boot.loader.limine.enableEditor = true;
+  boot.loader.limine.maxGenerations = 20;
+  boot.loader.limine.efiInstallAsRemovable = true;
+
 
   networking.hostName = "nixos";
   networking.networkmanager.enable = true;
@@ -132,11 +140,15 @@
   # Controller/device support
   hardware.steam-hardware.enable = true;
   services.udev.packages = with pkgs; [ game-devices-udev-rules ];
+  # Fish shell
+  programs.fish.enable = true;
+
 
   # Browsers
   programs.firefox.enable = true;
 
   users.users.rwillmore = {
+    shell = pkgs.fish;
     isNormalUser = true;
     description = "rwillmore";
     extraGroups = [ "networkmanager" "wheel" ];
@@ -174,5 +186,6 @@
   ];
 
   system.stateVersion = "25.11";
+  services.flatpak.enable = true;
 }
 
