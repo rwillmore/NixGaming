@@ -45,7 +45,7 @@
   ];
 
   # CPU governor: balanced desktop, GameMode boosts games
-  powerManagement.cpuFreqGovernor = "schedutil";
+  powerManagement.cpuFreqGovernor = "performance";
 
   # Compressed RAM swap for smoother memory behavior
   zramSwap = {
