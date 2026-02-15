@@ -9,7 +9,14 @@
     ./hardware-configuration.nix
   ];
 
-  nix.settings.experimental-features = [ "nix-command" "flakes" ];
+  nix.settings = {
+    experimental-features = [ "nix-command" "flakes" ];
+    "max-substitution-jobs" = 16;
+    "http-connections" = 64;
+    "connect-timeout" = 10;
+    "stalled-download-timeout" = 60;
+    "download-attempts" = 5;
+  };
   nixpkgs.config.allowUnfree = true;
 
   # Kernel (XanMod gaming kernel)
