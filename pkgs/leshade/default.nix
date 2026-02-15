@@ -16,7 +16,7 @@ stdenvNoCC.mkDerivation rec {
     owner = "Ishidawg";
     repo = "LeShade";
     rev = "2.0";
-    sha256 = lib.fakeSha256;
+    sha256 = "sha256-d3VVmGfgNFfa3hsSf914DeP98fqLYl12HNR9ZnZozQc=";
   };
 
   nativeBuildInputs = [
