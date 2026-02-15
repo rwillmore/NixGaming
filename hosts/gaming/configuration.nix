@@ -158,7 +158,8 @@
   };
 
   environment.systemPackages = with pkgs; [
-    git
+    pkgs.volt-gui
+      git
     kdePackages.kate
 
     # gaming tools

@@ -10,16 +10,20 @@
     system = "x86_64-linux";
     pkgs = import nixpkgs {
       inherit system;
+      overlays = [ (import ./overlays/default.nix) ];
       config.allowUnfree = true;
     };
   in {
-    # Expose LeShade as a buildable flake package
-    packages.${system}.leshade = pkgs.callPackage ./pkgs/leshade { };
-
-    # Keep your system config
+    # Expose buildable flake packages
+    packages.${system} = {
+      leshade = pkgs.callPackage ./pkgs/leshade { };
+      volt-gui = pkgs.volt-gui;
+    };
+# Keep your system config
     nixosConfigurations.gaming = nixpkgs.lib.nixosSystem {
       inherit system;
       modules = [
+        ({ config, pkgs, ... }: { nixpkgs.overlays = [ (import ./overlays/default.nix) ]; })
         ./hosts/gaming/configuration.nix
       ];
     };
