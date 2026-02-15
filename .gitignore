@@ -1,0 +1,10 @@
+
+# Nix build outputs
+result
+result-*
+
+# Backup files
+*.bak
+*.bak.*
+*.fixbak.*
+*.sessionbak.*
