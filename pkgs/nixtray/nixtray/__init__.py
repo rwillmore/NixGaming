@@ -1,4 +1,3 @@
-
 import os
 import sys
 import shlex
@@ -8,10 +7,9 @@ import hashlib
 import subprocess
 from pathlib import Path
 
-from PyQt6.QtCore import QTimer, Qt
+from PyQt6.QtCore import QTimer, Qt, QUrl
 from PyQt6.QtGui import QAction, QIcon, QPixmap, QPainter, QFont, QDesktopServices
 from PyQt6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
-from PyQt6.QtCore import QUrl
 
 APP_NAME = "NixOS Update Tray"
 
@@ -159,9 +157,22 @@ def notify(title: str, body: str, urgency: str = "normal") -> None:
 
 
 def open_log(log_path: Path) -> None:
-    xdg_open = "/run/current-system/sw/bin/xdg-open"
-    if Path(xdg_open).exists():
-        subprocess.run([xdg_open, str(log_path)], check=False)
+    # Prefer Qt desktop integration (best behavior from systemd user services)
+    try:
+        ok = QDesktopServices.openUrl(QUrl.fromLocalFile(str(log_path)))
+        if ok:
+            return
+    except Exception:
+        pass
+
+    # Fallbacks
+    for exe in ("/run/current-system/sw/bin/kde-open5", "/run/current-system/sw/bin/xdg-open"):
+        try:
+            if Path(exe).exists():
+                subprocess.run([exe, str(log_path)], check=False)
+                return
+        except Exception:
+            continue
 
 
 def _fallback_icon(letter: str = "N") -> QIcon:

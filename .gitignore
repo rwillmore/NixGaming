@@ -17,3 +17,7 @@ result-*
 
 # editor backups
 *.fishbak.*
+
+# nixtray cache
+.cache/nixtray/
+*.nixtray.new
