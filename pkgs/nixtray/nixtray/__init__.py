@@ -23,7 +23,7 @@ DEFAULT_DEBUG = os.environ.get("NIXTRAY_DEBUG", "0") == "1"
 # Boring reliability: use absolute binaries from the running system
 NIX = os.environ.get("NIXTRAY_NIX", "/run/current-system/sw/bin/nix")
 BASH = os.environ.get("NIXTRAY_BASH", "/run/current-system/sw/bin/bash")
-PKEXEC = os.environ.get("NIXTRAY_PKEXEC", "/run/current-system/sw/bin/pkexec")
+PKEXEC = os.environ.get("NIXTRAY_PKEXEC", "/run/wrappers/bin/pkexec")
 NIXOS_REBUILD = os.environ.get("NIXTRAY_NIXOS_REBUILD", "/run/current-system/sw/bin/nixos-rebuild")
 
 # Track a currently running child process group so SIGTERM can kill it
