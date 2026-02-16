@@ -1,3 +1,4 @@
+
 import os
 import sys
 import shlex
@@ -8,8 +9,9 @@ import subprocess
 from pathlib import Path
 
 from PyQt6.QtCore import QTimer, Qt
-from PyQt6.QtGui import QAction, QIcon, QPixmap, QPainter, QFont
+from PyQt6.QtGui import QAction, QIcon, QPixmap, QPainter, QFont, QDesktopServices
 from PyQt6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
+from PyQt6.QtCore import QUrl
 
 APP_NAME = "NixOS Update Tray"
 
@@ -71,9 +73,15 @@ def _kill_active_process_group(log_path: Path) -> None:
         log_block(log_path, "Shutdown", [f"Failed to kill pgid={pgid}", repr(e)])
 
 
-def run_cmd(log_path: Path, cmd: list[str], cwd: Path | None = None, env: dict | None = None, timeout: int | None = None) -> tuple[int, str, str]:
+def run_cmd(
+    log_path: Path,
+    cmd: list[str],
+    cwd: Path | None = None,
+    env: dict | None = None,
+    timeout: int | None = None,
+) -> tuple[int, str, str]:
     """
-    Runs a command WITHOUT freezing shutdown forever:
+    Runs a command without freezing shutdown forever:
     - uses Popen
     - creates a new process group so SIGTERM can kill the whole tree
     - optional timeout
@@ -81,11 +89,15 @@ def run_cmd(log_path: Path, cmd: list[str], cwd: Path | None = None, env: dict |
     global _ACTIVE_PGID
 
     cmd_str = " ".join(shlex.quote(c) for c in cmd)
-    log_block(log_path, "Command", [
-        f"cwd: {str(cwd) if cwd else os.getcwd()}",
-        f"cmd: {cmd_str}",
-        f"timeout: {timeout if timeout is not None else 'none'}",
-    ])
+    log_block(
+        log_path,
+        "Command",
+        [
+            f"cwd: {str(cwd) if cwd else os.getcwd()}",
+            f"cmd: {cmd_str}",
+            f"timeout: {timeout if timeout is not None else 'none'}",
+        ],
+    )
 
     try:
         p = subprocess.Popen(
@@ -95,9 +107,9 @@ def run_cmd(log_path: Path, cmd: list[str], cwd: Path | None = None, env: dict |
             text=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            start_new_session=True,  # makes a new process group/session
+            start_new_session=True,
         )
-        _ACTIVE_PGID = p.pid  # with start_new_session, pid is also the pgid
+        _ACTIVE_PGID = p.pid
 
         try:
             out, err = p.communicate(timeout=timeout)
@@ -111,11 +123,15 @@ def run_cmd(log_path: Path, cmd: list[str], cwd: Path | None = None, env: dict |
         rc = p.returncode
         out = out or ""
         err = err or ""
-        log_block(log_path, "Result", [
-            f"returncode: {rc}",
-            f"stdout:\n{out.rstrip()}",
-            f"stderr:\n{err.rstrip()}",
-        ])
+        log_block(
+            log_path,
+            "Result",
+            [
+                f"returncode: {rc}",
+                f"stdout:\n{out.rstrip()}",
+                f"stderr:\n{err.rstrip()}",
+            ],
+        )
         return rc, out, err
 
     except Exception as e:
@@ -182,6 +198,10 @@ class NixTray(QSystemTrayIcon):
         self.keep_lock = keep_lock
         self.debug = debug
 
+        self._busy = False
+        self._last_check_ts: str | None = None
+        self._last_result: str = "Ready"
+
         # Better icon reliability on minimal icon themes
         self.icon_ok = _theme_icon(["emblem-default", "dialog-information", "help-about"], "N")
         self.icon_updates = _theme_icon(["software-update-available", "system-software-update", "view-refresh"], "U")
@@ -189,9 +209,11 @@ class NixTray(QSystemTrayIcon):
         self.icon_fail = _theme_icon(["dialog-error", "emblem-important", "process-stop"], "X")
 
         self.setIcon(self.icon_ok)
-        self.setToolTip("Starting...")
 
         self.menu = QMenu()
+
+        self.act_status = QAction("Status: Ready")
+        self.act_status.setEnabled(False)
 
         self.act_check = QAction("Check for updates")
         self.act_check.triggered.connect(self.check_updates)
@@ -202,46 +224,84 @@ class NixTray(QSystemTrayIcon):
         self.act_check_sync_apply = QAction("Check then Sync + Apply")
         self.act_check_sync_apply.triggered.connect(self.check_then_sync_apply)
 
+        self.act_open_repo = QAction("Open repo folder")
+        self.act_open_repo.triggered.connect(self.open_repo)
+
         self.act_open_log = QAction("Open log")
         self.act_open_log.triggered.connect(lambda: open_log(self.log_path))
+
+        self.act_about = QAction("About")
+        self.act_about.triggered.connect(self.about)
 
         self.act_quit = QAction("Quit")
         self.act_quit.triggered.connect(QApplication.instance().quit)
 
+        self.menu.addAction(self.act_status)
+        self.menu.addSeparator()
         self.menu.addAction(self.act_check)
         self.menu.addSeparator()
         self.menu.addAction(self.act_sync_apply)
         self.menu.addAction(self.act_check_sync_apply)
         self.menu.addSeparator()
+        self.menu.addAction(self.act_open_repo)
         self.menu.addAction(self.act_open_log)
+        self.menu.addAction(self.act_about)
         self.menu.addSeparator()
         self.menu.addAction(self.act_quit)
 
         self.setContextMenu(self.menu)
 
-        log_block(self.log_path, "Startup", [
-            f"repo: {self.repo}",
-            f"host: {self.host}",
-            f"log: {self.log_path}",
-            f"cache_dir: {self.cache_dir}",
-            f"keep_lock: {self.keep_lock}",
-            f"debug: {self.debug}",
-            f"NIX: {NIX}",
-            f"BASH: {BASH}",
-            f"PKEXEC: {PKEXEC}",
-            f"NIXOS_REBUILD: {NIXOS_REBUILD}",
-            f"TMPDIR: {os.environ.get('TMPDIR','')}",
-        ])
+        log_block(
+            self.log_path,
+            "Startup",
+            [
+                f"repo: {self.repo}",
+                f"host: {self.host}",
+                f"log: {self.log_path}",
+                f"cache_dir: {self.cache_dir}",
+                f"keep_lock: {self.keep_lock}",
+                f"debug: {self.debug}",
+                f"NIX: {NIX}",
+                f"BASH: {BASH}",
+                f"PKEXEC: {PKEXEC}",
+                f"NIXOS_REBUILD: {NIXOS_REBUILD}",
+                f"TMPDIR: {os.environ.get('TMPDIR','')}",
+            ],
+        )
 
-        self.setToolTip("Ready")
+        self._set_status(self.icon_ok, "Ready")
         self.show()
 
         # Initial check (don’t do it immediately at startup)
         QTimer.singleShot(1200, self.check_updates)
 
+    def _set_busy(self, busy: bool) -> None:
+        self._busy = busy
+        self.act_check.setEnabled(not busy)
+        self.act_sync_apply.setEnabled(not busy)
+        self.act_check_sync_apply.setEnabled(not busy)
+        self.act_open_repo.setEnabled(not busy)
+        self.act_open_log.setEnabled(True)
+        self.act_about.setEnabled(True)
+        self.act_quit.setEnabled(True)
+
+    def _update_status_line(self, text: str) -> None:
+        self._last_result = text
+        if self._last_check_ts:
+            self.act_status.setText(f"Status: {text} (last check {self._last_check_ts})")
+        else:
+            self.act_status.setText(f"Status: {text}")
+
+        tip = text
+        if self._last_check_ts:
+            tip = f"{text}\nLast check: {self._last_check_ts}\nRepo: {self.repo}"
+        else:
+            tip = f"{text}\nRepo: {self.repo}"
+        self.setToolTip(tip)
+
     def _set_status(self, icon: QIcon, tooltip: str) -> None:
         self.setIcon(icon)
-        self.setToolTip(tooltip)
+        self._update_status_line(tooltip)
 
     def _lock_paths(self) -> tuple[Path, Path]:
         self.cache_dir.mkdir(parents=True, exist_ok=True)
@@ -259,7 +319,30 @@ class NixTray(QSystemTrayIcon):
             env["NIX_CONFIG"] = f"experimental-features = {extra}"
         return env
 
+    def open_repo(self) -> None:
+        try:
+            QDesktopServices.openUrl(QUrl.fromLocalFile(str(self.repo)))
+        except Exception:
+            pass
+
+    def about(self) -> None:
+        msg = (
+            f"{APP_NAME}\n\n"
+            f"Repo: {self.repo}\n"
+            f"Host: {self.host}\n"
+            f"Log: {self.log_path}\n"
+            f"Cache: {self.cache_dir}\n"
+            f"Keep lock: {self.keep_lock}\n"
+            f"Debug: {self.debug}"
+        )
+        notify(APP_NAME, msg)
+
     def check_updates(self) -> bool:
+        if self._busy:
+            notify(APP_NAME, "Already running, try again in a bit.")
+            return False
+
+        self._set_busy(True)
         self._set_status(self.icon_busy, "Checking updates...")
         notify(APP_NAME, "Checking for updates...")
 
@@ -268,6 +351,7 @@ class NixTray(QSystemTrayIcon):
             self._set_status(self.icon_fail, "Missing flake.lock")
             log_block(self.log_path, "Error", [f"Missing {flake_lock}"])
             notify(APP_NAME, "Missing flake.lock", "critical")
+            self._set_busy(False)
             return False
 
         new_lock, stamp_lock = self._lock_paths()
@@ -296,11 +380,13 @@ class NixTray(QSystemTrayIcon):
         ])
 
         rc, _, _ = run_cmd(self.log_path, cmd, cwd=self.repo, env=self._nix_env(), timeout=600)
+        self._last_check_ts = now_ts()
 
         if rc != 0:
             self._set_status(self.icon_fail, "Update check failed")
             notify(APP_NAME, "Update check failed. Opening log.", "critical")
             open_log(self.log_path)
+            self._set_busy(False)
             return False
 
         if not new_lock.exists():
@@ -313,6 +399,7 @@ class NixTray(QSystemTrayIcon):
             ])
             notify(APP_NAME, "BUG: nix returned ok but lock file missing. Opening log.", "critical")
             open_log(self.log_path)
+            self._set_busy(False)
             return False
 
         if self.debug:
@@ -339,13 +426,20 @@ class NixTray(QSystemTrayIcon):
                     new_lock.unlink()
                 except Exception:
                     pass
+            self._set_busy(False)
             return True
 
         self._set_status(self.icon_updates, "Updates available")
         notify(APP_NAME, "Updates available")
+        self._set_busy(False)
         return True
 
     def sync_apply(self) -> bool:
+        if self._busy:
+            notify(APP_NAME, "Already running, try again in a bit.")
+            return False
+
+        self._set_busy(True)
         self._set_status(self.icon_busy, "Syncing + applying...")
         notify(APP_NAME, "Running Sync + Apply...")
 
@@ -355,6 +449,7 @@ class NixTray(QSystemTrayIcon):
             log_block(self.log_path, "Error", [f"Missing {git_sync}"])
             notify(APP_NAME, "Missing scripts/git-sync.sh", "critical")
             open_log(self.log_path)
+            self._set_busy(False)
             return False
 
         rc1, _, _ = run_cmd(self.log_path, [BASH, str(git_sync)], cwd=self.repo, env=os.environ.copy(), timeout=600)
@@ -362,11 +457,12 @@ class NixTray(QSystemTrayIcon):
             self._set_status(self.icon_fail, "Git sync failed")
             notify(APP_NAME, "Git sync failed. Opening log.", "critical")
             open_log(self.log_path)
+            self._set_busy(False)
             return False
 
         apply_cmd = (
-            f'cd {shlex.quote(str(self.repo))} && '
-            f'{shlex.quote(NIXOS_REBUILD)} switch --flake {shlex.quote(f".#{self.host}")}'
+            f"cd {shlex.quote(str(self.repo))} && "
+            f"{shlex.quote(NIXOS_REBUILD)} switch --flake {shlex.quote(f'.#{self.host}')}"
         )
         cmd2 = [PKEXEC, BASH, "-lc", apply_cmd]
         rc2, _, _ = run_cmd(self.log_path, cmd2, cwd=self.repo, env=os.environ.copy(), timeout=3600)
@@ -375,17 +471,19 @@ class NixTray(QSystemTrayIcon):
             self._set_status(self.icon_fail, "Apply failed")
             notify(APP_NAME, "Apply failed. Opening log.", "critical")
             open_log(self.log_path)
+            self._set_busy(False)
             return False
 
         self._set_status(self.icon_ok, "Sync + Apply: success")
         notify(APP_NAME, "Sync + Apply: success")
+        self._set_busy(False)
         return True
 
     def check_then_sync_apply(self) -> None:
         ok = self.check_updates()
         if not ok:
             return
-        tip = self.toolTip() or ""
+        tip = self._last_result or ""
         if "Updates available" in tip:
             self.sync_apply()
         else:
@@ -403,15 +501,15 @@ def main():
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)
 
-    tray = NixTray(repo, host, log_path, cache_dir, keep_lock, debug)
+    _tray = NixTray(repo, host, log_path, cache_dir, keep_lock, debug)
 
     def _handle_term(*_args):
-        # Always exit fast for systemd stop/restart, even if a command is running.
+        # Exit cleanly, but still kill active child trees first.
         try:
-            log_block(log_path, "Signal", ["Received SIGTERM, exiting"])
+            log_block(log_path, "Signal", ["Received termination signal, quitting"])
             _kill_active_process_group(log_path)
         finally:
-            os._exit(0)
+            app.quit()
 
     signal.signal(signal.SIGTERM, _handle_term)
     signal.signal(signal.SIGINT, _handle_term)

@@ -4,13 +4,15 @@ set -euo pipefail
 REPO="/home/rwillmore/NixGaming"
 BRANCH="main"
 
+# Absolute binaries so this works from systemd user services too
+NIX="/run/current-system/sw/bin/nix"
+GIT="/run/current-system/sw/bin/git"
+
 cd "$REPO"
 
-# Update flake inputs so nixpkgs (and kernel, nvidia) can move forward
 echo "=== Flake update ==="
-nix flake update
+"$NIX" flake update
 echo
-
 
 # Ignore editor backups
 if ! grep -q "^\*\.fishbak\.\*$" .gitignore 2>/dev/null; then
@@ -23,15 +25,15 @@ fi
 # Remove fish backup files
 rm -f hosts/gaming/*.fishbak.* 2>/dev/null || true
 
-git add -A
+"$GIT" add -A
 
-if git diff --cached --quiet; then
+if "$GIT" diff --cached --quiet; then
   echo "Nothing to commit."
   exit 0
 fi
 
 msg="Sync NixGaming $(date +%Y-%m-%d_%H%M)"
-git commit -m "$msg"
-git push origin "$BRANCH"
+"$GIT" commit -m "$msg"
+"$GIT" push origin "$BRANCH"
 
 echo "Done."
