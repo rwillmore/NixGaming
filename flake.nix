@@ -18,12 +18,14 @@
     packages.${system} = {
       leshade = pkgs.callPackage ./pkgs/leshade { };
       volt-gui = pkgs.volt-gui;
+      nixtray = pkgs.callPackage ./pkgs/nixtray { };
     };
 # Keep your system config
     nixosConfigurations.gaming = nixpkgs.lib.nixosSystem {
       inherit system;
       modules = [
         ({ config, pkgs, ... }: { nixpkgs.overlays = [ (import ./overlays/default.nix) ]; })
+        ./modules/nixtray.nix
         ./hosts/gaming/configuration.nix
       ];
     };

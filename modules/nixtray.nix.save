@@ -1,0 +1,53 @@
+{ config, lib, pkgs, ... }:
+let
+  cfg = config.services.nixtray;
+in
+{
+  options.services.nixtray = {
+    enable = lib.mkEnableOption "NixOS Update Tray";
+
+    repo = lib.mkOption {
+      type = lib.types.str;
+      default = "/home/rwillmore/NixGaming";
+      description = "Path to the flake repo";
+    };
+
+    host = lib.mkOption {
+      type = lib.types.str;
+      default = "gaming";
+      description = "Flake host target name";
+    };
+
+    debug = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = "Keep extra debug artifacts";
+    };
+
+    keepLock = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = "Keep generated lock file in repo cache dir";
+    };
+  };
+
+  config = lib.mkIf cfg.enable {
+    environment.systemPackages = [ pkgs.nixtray pkgs.libnotify ];
+
+    systemd.user.services.nixtray = {
+      description = "NixOS Update Tray (Qt)";
+      after = [ "graphical-session.target" ];
+      partOf = [ "graphical-session.target" ];
+      wantedBy = [ "graphical-session.target" ];
+
+      serviceConfig = {
+        Type = "simple";
+        ExecStart = "${pkgs.nixtray}/bin/nixtray";
+        Restart = "on-failure";
+        RestartSec = 2;
+      };
+
+      environment = {
+        NIXTRAY_REPO = cfg.repo;
+        NIXTRAY_HOST = cfg.host;
+   

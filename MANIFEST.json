@@ -1,0 +1,27 @@
+[
+  {
+    "path": "pkgs/nixtray/nixtray/__init__.py",
+    "bytes": 11766,
+    "sha256": "7540538ca661de47557791b6d26d42d8f837b7f396e63543f273aedb69706e91"
+  },
+  {
+    "path": "pkgs/nixtray/nixtray/__main__.py",
+    "bytes": 26,
+    "sha256": "22f4e34d886f54eea1f49a5ae398be15fce370a709cb58f0900658fc292089b4"
+  },
+  {
+    "path": "pkgs/nixtray/default.nix",
+    "bytes": 595,
+    "sha256": "62bc707a43f12034dc14353a01da8cd724898f7e59ae72a9221dc2c40d754ff0"
+  },
+  {
+    "path": "modules/nixtray.nix",
+    "bytes": 1461,
+    "sha256": "f0aa98e5e95e6bf5ec9f02c5364a0156192b2d4329a4079053da138fe30a3a0e"
+  },
+  {
+    "path": "README_INSTALL.txt",
+    "bytes": 1082,
+    "sha256": "ac6d7977a105caeb8d5519ded27dfb17324bf991940693a65965567cb665fc51"
+  }
+]

@@ -200,6 +200,17 @@
 
   system.stateVersion = "25.11";
   services.flatpak.enable = true;
-}
 
+  # NixOS Update Tray (flake packaged)
+  services.nixtray = {
+    enable = true;
+    repo = "/home/rwillmore/NixGaming";
+    host = "gaming";
+    debug = true;
+    keepLock = true;
+  };
+
+
+
+}
 
