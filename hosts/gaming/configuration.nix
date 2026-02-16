@@ -4,6 +4,9 @@
 
 { config, pkgs, lib, ... }:
 {
+  # Polkit (needed for pkexec)
+  security.polkit.enable = true;
+
   # Prefer NVIDIA for display (keep AMD iGPU available)
 
 
@@ -119,6 +122,7 @@
   services.displayManager.defaultSession = "plasma";
   services.desktopManager.plasma6.enable = true;
 
+
   services.xserver.xkb = {
     layout = "us";
     variant = "";
@@ -169,6 +173,7 @@
   };
 
   environment.systemPackages = with pkgs; [
+  kdePackages.polkit-kde-agent-1
     pkgs.volt-gui
       git
       openssh
