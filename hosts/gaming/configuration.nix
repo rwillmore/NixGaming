@@ -212,7 +212,7 @@
     enable = true;
     repo = "/home/rwillmore/NixGaming";
     host = "gaming";
-    debug = true;
+  debug = false;
     keepLock = true;
   };
 }
