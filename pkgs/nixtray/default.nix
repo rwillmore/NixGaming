@@ -1,7 +1,13 @@
 
- { lib
+{ lib
 , python3
 , libnotify
+, openssh
+, git
+, nix
+, bash
+, polkit
+, xdg-utils
 }:
 
 python3.pkgs.buildPythonApplication rec {
@@ -17,6 +23,20 @@ python3.pkgs.buildPythonApplication rec {
 
   nativeBuildInputs = [
     python3.pkgs.setuptools
+  ];
+
+  # Make sure runtime tools exist when launched from systemd
+  # (systemd user services often do not have your interactive PATH)
+  makeWrapperArgs = [
+    "--prefix" "PATH" ":" (lib.makeBinPath [
+      libnotify
+      openssh
+      git
+      nix
+      bash
+      polkit
+      xdg-utils
+    ])
   ];
 
   installPhase = ''
@@ -41,4 +61,3 @@ EOF
     platforms = platforms.linux;
   };
 }
-
