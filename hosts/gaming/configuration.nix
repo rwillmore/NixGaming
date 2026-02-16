@@ -5,6 +5,9 @@
 { config, pkgs, lib, ... }:
 
 {
+  # Prefer NVIDIA for display (keep AMD iGPU available)
+
+
   imports = [
     ./hardware-configuration.nix
   ];
@@ -20,8 +23,7 @@
   nixpkgs.config.allowUnfree = true;
 
   # Kernel (XanMod gaming kernel)
-  boot.kernelPackages = pkgs.linuxPackages_xanmod;
-
+  boot.kernelPackages = pkgs.linuxPackages_xanmod_latest;
   boot.kernel.sysctl = {
     "vm.swappiness" = 10;
     "vm.vfs_cache_pressure" = 50;
@@ -31,6 +33,9 @@
   services.xserver.videoDrivers = [ "nvidia" ];
 
   hardware.nvidia = {
+      powerManagement.enable = false;
+      powerManagement.finegrained = false;
+
     modesetting.enable = true;
     nvidiaSettings = true;
     open = false;
@@ -196,4 +201,5 @@
   system.stateVersion = "25.11";
   services.flatpak.enable = true;
 }
+
 
