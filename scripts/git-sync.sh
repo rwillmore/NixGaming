@@ -6,6 +6,12 @@ BRANCH="main"
 
 cd "$REPO"
 
+# Update flake inputs so nixpkgs (and kernel, nvidia) can move forward
+echo "=== Flake update ==="
+nix flake update
+echo
+
+
 # Ignore editor backups
 if ! grep -q "^\*\.fishbak\.\*$" .gitignore 2>/dev/null; then
   printf "
