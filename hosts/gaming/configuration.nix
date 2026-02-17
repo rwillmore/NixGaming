@@ -116,6 +116,9 @@
 
   # Helpful tools
   environment.systemPackages = with pkgs; [
+    waybar
+    pavucontrol
+    networkmanagerapplet
     firefox
     google-chrome
     # Hyprland essentials
