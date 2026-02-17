@@ -63,7 +63,7 @@
   hardware.alsa.enable = true;
   hardware.pulseaudio.enable = false;
   services.pipewire = {
-    enable = true;
+    enable = lib.mkForce true;
     alsa.enable = true;
     alsa.support32Bit = true;
     pulse.enable = true;
