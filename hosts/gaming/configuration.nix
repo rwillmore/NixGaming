@@ -1,218 +1,142 @@
-# configuration file to define what should be installed on
-# your system. Help is available in the configuration.nix(5) man page
-# and in the NixOS manual (accessible by running ‘nixos-help’).
-
+# Edit
 { config, pkgs, lib, ... }:
+
 {
-  # Polkit (needed for pkexec)
-  security.polkit.enable = true;
-
-  # Prefer NVIDIA for display (keep AMD iGPU available)
-
-
   imports = [
     ./hardware-configuration.nix
   ];
 
+  # -------------------------
+  # Nix + flakes
+  # -------------------------
   nix.settings = {
     experimental-features = [ "nix-command" "flakes" ];
-    "max-substitution-jobs" = 16;
-    "http-connections" = 64;
-    "connect-timeout" = 10;
-    "stalled-download-timeout" = 60;
-    "download-attempts" = 5;
+    max-substitution-jobs = 16;
+    http-connections = 64;
+    connect-timeout = 10;
+    stalled-download-timeout = 60;
+    download-attempts = 5;
   };
+
   nixpkgs.config.allowUnfree = true;
 
-  # Kernel (XanMod gaming kernel)
-  boot.kernelPackages = pkgs.linuxPackages_xanmod_latest;
+  # -------------------------
+  # Boot
+  # -------------------------
+  boot.loader.limine.enable = true;
+  boot.loader.limine.efiInstallAsRemovable = true;
+
+  # Gaming kernel
+  boot.kernelPackages = pkgs.linuxPackages_xanmod;
+
   boot.kernel.sysctl = {
     "vm.swappiness" = 10;
     "vm.vfs_cache_pressure" = 50;
   };
 
-  # NVIDIA driver setup
-  services.xserver.videoDrivers = [ "nvidia" ];
-
-  hardware.nvidia = {
-      powerManagement.enable = false;
-      powerManagement.finegrained = false;
-
-    modesetting.enable = true;
-    nvidiaSettings = true;
-    open = false;
-    package = config.boot.kernelPackages.nvidiaPackages.latest;
-    nvidiaPersistenced = true;
-  };
-
-  boot.kernelParams = [
-    "nvidia_drm.modeset=1"
-    "nvidia.NVreg_PreserveVideoMemoryAllocations=1"
-    "amd_pstate=active"
-  ];
-
-  # CPU governor: balanced desktop, GameMode boosts games
-  powerManagement.cpuFreqGovernor = "performance";
-
-  # Compressed RAM swap for smoother memory behavior
-  zramSwap = {
-    enable = true;
-    algorithm = "zstd";
-    memoryPercent = 25;
-    priority = 100;
-  };
-
-  # SSD trim
-  services.fstrim.enable = true;
-
-  # 32-bit graphics libs for Steam/Proton
-  hardware.graphics = {
-    enable = true;
-    enable32Bit = true;
-  };
-
-  # Bootloader
-  boot.loader.systemd-boot.enable = false;
-  boot.loader.efi.canTouchEfiVariables = true;
-  boot.loader.grub.enable = false;
-
-  boot.loader.limine.enable = true;
-  boot.loader.limine.efiSupport = true;
-  boot.loader.limine.enableEditor = true;
-  boot.loader.limine.maxGenerations = 20;
-  boot.loader.limine.efiInstallAsRemovable = true;
-
-
-  networking.hostName = "nixos";
+  # -------------------------
+  # Networking
+  # -------------------------
   networking.networkmanager.enable = true;
+  # networking.hostName = "nixos"; # optional
 
-  # DNS: systemd-resolved, avoid router DNS stalls
-  services.resolved.enable = true;
-  networking.networkmanager.dns = "systemd-resolved";
-
-  services.resolved.settings = {
-    Resolve = {
-      DNS = [ "1.1.1.1" "1.0.0.1" "8.8.8.8" "8.8.4.4" ];
-      FallbackDNS = [ "1.1.1.1" "1.0.0.1" "8.8.8.8" "8.8.4.4" ];
-      Domains = [ "~." ];
-      DNSSEC = "no";
-      DNSOverTLS = "no";
-    };
-  };
-
+  # -------------------------
+  # Time + locale
+  # -------------------------
   time.timeZone = "America/Chicago";
-
   i18n.defaultLocale = "en_US.UTF-8";
-  i18n.extraLocaleSettings = {
-    LC_ADDRESS = "en_US.UTF-8";
-    LC_IDENTIFICATION = "en_US.UTF-8";
-    LC_MEASUREMENT = "en_US.UTF-8";
-    LC_MONETARY = "en_US.UTF-8";
-    LC_NAME = "en_US.UTF-8";
-    LC_NUMERIC = "en_US.UTF-8";
-    LC_PAPER = "en_US.UTF-8";
-    LC_TELEPHONE = "en_US.UTF-8";
-    LC_TIME = "en_US.UTF-8";
-  };
 
-  # Plasma 6
+  # -------------------------
+  # Desktop: KDE Plasma (Wayland)
+  # -------------------------
   services.xserver.enable = true;
+
   services.displayManager.sddm.enable = true;
-  services.displayManager.sddm.wayland.enable = true;
-  services.displayManager.defaultSession = "plasma";
   services.desktopManager.plasma6.enable = true;
 
+  # Optional: make sure Wayland is available for Plasma
+  services.displayManager.defaultSession = "plasmawayland";
 
-  services.xserver.xkb = {
-    layout = "us";
-    variant = "";
-  };
+  # -------------------------
+  # Audio: PipeWire
+  # -------------------------
+  sound.enable = true;
+  hardware.pulseaudio.enable = false;
 
-  services.printing.enable = true;
-
-  # Audio via PipeWire
-  services.pulseaudio.enable = false;
-  security.rtkit.enable = true;
   services.pipewire = {
     enable = true;
     alsa.enable = true;
     alsa.support32Bit = true;
     pulse.enable = true;
+    jack.enable = true;
   };
 
-  # Raise file descriptor limit
-  security.pam.loginLimits = [
-    { domain = "*"; type = "soft"; item = "nofile"; value = "1048576"; }
-    { domain = "*"; type = "hard"; item = "nofile"; value = "1048576"; }
-  ];
+  # -------------------------
+  # NVIDIA
+  # -------------------------
+  services.xserver.videoDrivers = [ "nvidia" ];
 
-  # Steam + GameMode
-  programs.steam.enable = true;
-  programs.gamemode.enable = true;
-  programs.steam.remotePlay.openFirewall = true;
-  programs.steam.dedicatedServer.openFirewall = true;
+  hardware.graphics.enable = true;
 
-  # Controller/device support
-  hardware.steam-hardware.enable = true;
-  services.udev.packages = with pkgs; [ game-devices-udev-rules ];
-  # Fish shell
-  programs.fish.enable = true;
+  hardware.nvidia = {
+    modesetting.enable = true;
+    powerManagement.enable = false;
+    powerManagement.finegrained = false;
+    open = false;
+    nvidiaSettings = true;
 
-
-  # Browsers
-  programs.firefox.enable = true;
-
-  users.users.rwillmore = {
-    shell = pkgs.fish;
-    isNormalUser = true;
-    description = "rwillmore";
-    extraGroups = [ "networkmanager" "wheel" ];
-    packages = with pkgs; [
-      kdePackages.kate
-    ];
+    # If you want to pin driver branch later, we can do it, but leaving default is safest.
+    package = config.boot.kernelPackages.nvidiaPackages.stable;
   };
 
-  environment.systemPackages = with pkgs; [
-  kdePackages.polkit-kde-agent-1
-    pkgs.volt-gui
-      git
-      openssh
-      xdg-utils
-    kdePackages.kate
-
-    # gaming tools
-    protonup-qt
-    mangohud
-    goverlay
-    gamescope
-    vkbasalt
-    heroic
-    lutris
-    vulkan-tools
-
-    # LeShade (your local package)
-    (pkgs.callPackage ../../pkgs/leshade { })
-
-    # Chrome (unfree)
-    google-chrome
-
-    # wine tools
-    wineWow64Packages.stable
-    winetricks
-
-    # audio mixer UI
-    pavucontrol
-  ];
-
-  system.stateVersion = "25.11";
-  services.flatpak.enable = true;
-
-  # NixOS Update Tray (flake packaged)
-  services.nixtray = {
+  # -------------------------
+  # Gaming basics
+  # -------------------------
+  programs.steam = {
     enable = true;
-    repo = "/home/rwillmore/NixGaming";
-    host = "gaming";
-  debug = false;
-    keepLock = true;
+    remotePlay.openFirewall = false;
+    dedicatedServer.openFirewall = false;
   };
+
+  programs.gamemode.enable = true;
+
+  # Helpful tools
+  environment.systemPackages = with pkgs; [
+    git
+    kate
+    vim
+    wget
+    curl
+    pciutils
+    usbutils
+    lm_sensors
+  ];
+
+  # -------------------------
+  # Users
+  # -------------------------
+  # If your username is different, change rwillmore here.
+  users.users.rwillmore = {
+    isNormalUser = true;
+    extraGroups = [ "wheel" "networkmanager" "audio" "video" "input" ];
+  };
+
+  # Allow sudo for wheel
+  security.sudo.wheelNeedsPassword = true;
+
+  # -------------------------
+  # OpenGL 32-bit (helps Steam/Proton)
+  # -------------------------
+  hardware.graphics.enable32Bit = true;
+
+  # -------------------------
+  # IMPORTANT: nixtray disabled
+  # -------------------------
+  # This file intentionally does not define any nixtray systemd user services/timers,
+  # does not write unit files into ~/.config/systemd/user, and does not set KDE autostart.
+
+  # -------------------------
+  # NixOS release pin
+  # -------------------------
+  system.stateVersion = "26.05";
 }
