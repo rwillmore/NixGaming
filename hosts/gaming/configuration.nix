@@ -60,9 +60,8 @@
   # -------------------------
   # Audio: PipeWire
   # -------------------------
-  sound.enable = true;
+  hardware.alsa.enable = true;
   hardware.pulseaudio.enable = false;
-
   services.pipewire = {
     enable = true;
     alsa.enable = true;
