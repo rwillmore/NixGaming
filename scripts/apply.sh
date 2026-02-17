@@ -29,7 +29,7 @@ nix flake check --show-trace 2>&1 | tee -a "$LOG"
 echo | tee -a "$LOG"
 
 echo "== Build system ==" | tee -a "$LOG"
-nix build ".#nixosConfigurations.${HOST}.config.system.build.toplevel" --show-trace 2>&1 | tee -a "$LOG"
+nix build -L ".#nixosConfigurations.${HOST}.config.system.build.toplevel" --show-trace 2>&1 | tee -a "$LOG"
 echo | tee -a "$LOG"
 
 echo "== Switch ==" | tee -a "$LOG"
