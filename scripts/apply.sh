@@ -1,8 +1,19 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 HOST="${1:-gaming}"
+
+cd "$REPO"
+
+# No-op fast path (do not create a log) unless FORCE=1
+if git diff --quiet && git diff --cached --quiet && [[ "${FORCE:-0}" != "1" ]]; then
+  echo "== No repo changes detected. Skipping build/switch. =="
+  echo "Tip: run with FORCE=1 to rebuild anyway."
+  exit 0
+fi
+
 STAMP="$(date +%Y%m%d-%H%M%S)"
 LOGDIR="${REPO}/.logs"
 LOG="${LOGDIR}/apply-${HOST}-${STAMP}.log"
@@ -13,15 +24,6 @@ echo "== Repo: $REPO ==" | tee -a "$LOG"
 echo "== Host: $HOST ==" | tee -a "$LOG"
 echo "== Time: $STAMP ==" | tee -a "$LOG"
 echo | tee -a "$LOG"
-
-cd "$REPO"
-
-# No-op fast path (do not create a log) unless FORCE=1
-if git diff --quiet && git diff --cached --quiet && [[ "${FORCE:-0}" != "1" ]]; then
-  echo "== No repo changes detected. Skipping build/switch. =="
-  echo "Tip: run with FORCE=1 to rebuild anyway."
-  exit 0
-fi
 
 
 echo "== Git status ==" | tee -a "$LOG"
