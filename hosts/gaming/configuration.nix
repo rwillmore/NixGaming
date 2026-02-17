@@ -101,6 +101,8 @@
 
   # Helpful tools
   environment.systemPackages = with pkgs; [
+    firefox
+    google-chrome
     git
     kdePackages.kate
     vim
