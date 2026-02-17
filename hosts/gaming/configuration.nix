@@ -57,6 +57,21 @@
   # Optional: make sure Wayland is available for Plasma
   services.displayManager.defaultSession = "plasma";
 
+  # Hyprland (Wayland) alongside KDE, selectable at SDDM login
+  programs.hyprland = {
+    enable = true;
+    xwayland.enable = true;
+  };
+
+  xdg.portal = {
+    enable = true;
+    extraPortals = with pkgs; [
+      xdg-desktop-portal-hyprland
+      xdg-desktop-portal-gtk
+    ];
+  };
+
+
   # -------------------------
   # Audio: PipeWire
   # -------------------------
@@ -103,6 +118,14 @@
   environment.systemPackages = with pkgs; [
     firefox
     google-chrome
+    # Hyprland essentials
+    kitty
+    wofi
+    swaybg
+    mako
+    grim
+    slurp
+    wl-clipboard
     brave
     git
     kdePackages.kate
@@ -113,6 +136,9 @@
     usbutils
     lm_sensors
   ];
+
+  environment.etc."xdg/hypr/hyprland.conf".source = ./hyprland.conf;
+
 
   # -------------------------
   # Users
