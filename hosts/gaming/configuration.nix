@@ -103,6 +103,7 @@
   environment.systemPackages = with pkgs; [
     firefox
     google-chrome
+    brave
     git
     kdePackages.kate
     vim
