@@ -20,6 +20,16 @@ echo "== Git status ==" | tee -a "$LOG"
 git status --porcelain=v1 | tee -a "$LOG" || true
 echo | tee -a "$LOG"
 
+# If no changes, skip the rest unless FORCE=1
+if git diff --quiet && git diff --cached --quiet; then
+  if [[ "${FORCE:-0}" != "1" ]]; then
+    echo "== No repo changes detected. Skipping build/switch. ==" | tee -a "$LOG"
+    echo "Tip: run with FORCE=1 to rebuild anyway." | tee -a "$LOG"
+    exit 0
+  fi
+fi
+
+
 echo "== Diff (working tree) ==" | tee -a "$LOG"
 git --no-pager diff | tee -a "$LOG" || true
 echo | tee -a "$LOG"
