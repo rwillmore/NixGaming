@@ -25,7 +25,6 @@
       inherit system;
       modules = [
         ({ config, pkgs, ... }: { nixpkgs.overlays = [ (import ./overlays/default.nix) ]; })
-        ./modules/nixtray.nix
         ./hosts/gaming/configuration.nix
       ];
     };
