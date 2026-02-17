@@ -55,13 +55,13 @@
   services.desktopManager.plasma6.enable = true;
 
   # Optional: make sure Wayland is available for Plasma
-  services.displayManager.defaultSession = "plasmawayland";
+  services.displayManager.defaultSession = "plasma";
 
   # -------------------------
   # Audio: PipeWire
   # -------------------------
   hardware.alsa.enable = true;
-  hardware.pulseaudio.enable = false;
+  services.pulseaudio.enable = false;
   services.pipewire = {
     enable = lib.mkForce true;
     alsa.enable = true;
