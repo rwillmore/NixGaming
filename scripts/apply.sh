@@ -16,38 +16,49 @@ fi
 STAMP="$(date +%Y%m%d-%H%M%S)"
 LOGDIR="${REPO}/.logs"
 LOG="${LOGDIR}/apply-${HOST}-${STAMP}.log"
-
 mkdir -p "$LOGDIR"
 
-echo "== Repo: $REPO ==" | tee -a "$LOG"
-echo "== Host: $HOST ==" | tee -a "$LOG"
-echo "== Time: $STAMP ==" | tee -a "$LOG"
-echo | tee -a "$LOG"
+on_err() {
+  echo
+  echo "== FAILED =="
+  echo "Log: $LOG"
+  echo
+  echo "== Last 120 lines =="
+  tail -n 120 "$LOG" || true
+}
+trap on_err ERR
 
-echo "== Git status ==" | tee -a "$LOG"
-git status --porcelain=v1 | tee -a "$LOG" || true
-echo | tee -a "$LOG"
+log() { echo "$@" | tee -a "$LOG"; }
 
-echo "== Diff (working tree) ==" | tee -a "$LOG"
-git --no-pager diff | tee -a "$LOG" || true
-echo | tee -a "$LOG"
+log "== Repo: $REPO =="
+log "== Host: $HOST =="
+log "== Time: $STAMP =="
+log ""
 
-echo "== nix flake check ==" | tee -a "$LOG"
+log "== Git status =="
+git status --porcelain=v1 2>&1 | tee -a "$LOG" || true
+log ""
+
+log "== Diff (working tree) =="
+git --no-pager diff 2>&1 | tee -a "$LOG" || true
+log ""
+
+log "== nix flake check =="
 nix flake check --show-trace 2>&1 | tee -a "$LOG"
-echo | tee -a "$LOG"
+log ""
 
-echo "== Build system ==" | tee -a "$LOG"
+log "== Build system =="
 nix build -L ".#nixosConfigurations.${HOST}.config.system.build.toplevel" --show-trace 2>&1 | tee -a "$LOG"
-echo | tee -a "$LOG"
+log ""
 
-echo "== Switch ==" | tee -a "$LOG"
-echo "Running: nixos-rebuild switch --flake .#${HOST} --show-trace" | tee -a "$LOG"
+log "== Switch =="
+log "Running: nixos-rebuild switch --flake .#${HOST} --show-trace"
 if [[ "${EUID:-$(id -u)}" -eq 0 ]]; then
   nixos-rebuild switch --flake ".#${HOST}" --show-trace 2>&1 | tee -a "$LOG"
 else
   sudo nixos-rebuild switch --flake ".#${HOST}" --show-trace 2>&1 | tee -a "$LOG"
 fi
-echo | tee -a "$LOG"
+log ""
 
-echo "== Done. Log: $LOG ==" | tee -a "$LOG"
-echo "Rollback tip: sudo nixos-rebuild --rollback switch" | tee -a "$LOG"
+log "== Done. Log: $LOG =="
+log "Rollback tip: sudo nixos-rebuild --rollback switch"
