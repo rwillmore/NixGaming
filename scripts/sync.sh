@@ -6,15 +6,29 @@ REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 cd "$REPO"
 
-echo "== Sync: repo pull =="
+echo "== Repo: $REPO =="
+echo "== Host: $HOST =="
+echo
+
+echo "== Git: fetch =="
+git fetch --prune
+
+echo
+echo "== Git: status before =="
+git status -sb
+
+echo
+echo "== Git: pull (rebase + autostash) =="
 git pull --rebase --autostash
 
 echo
+echo "== Git: status after =="
+git status -sb
+
+echo
 echo "== Apply =="
-# If the pull produced changes, apply.sh will run.
-# If nothing changed, apply.sh will fast-exit unless you force it.
-./scripts/apply.sh "$HOST" || true
+./scripts/apply.sh "$HOST"
 
 echo
 echo "Done."
-echo "Tip: FORCE=1 ./scripts/sync.sh ${HOST}  (rebuild even if no repo changes)"
+echo "Tip: FORCE=1 ./scripts/force-apply.sh $HOST  (rebuild even if no repo changes)"
