@@ -21,3 +21,6 @@ result-*
 # nixtray cache
 .cache/nixtray/
 *.nixtray.new
+
+# local apply logs
+/.logs/
