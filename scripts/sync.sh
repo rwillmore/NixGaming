@@ -10,6 +10,8 @@ echo "== Repo: $REPO =="
 echo "== Host: $HOST =="
 echo
 
+oldrev="$(git rev-parse HEAD)"
+
 echo "== Git: fetch =="
 git fetch --prune
 
@@ -21,14 +23,20 @@ echo
 echo "== Git: pull (rebase + autostash) =="
 git pull --rebase --autostash
 
+newrev="$(git rev-parse HEAD)"
+
 echo
 echo "== Git: status after =="
 git status -sb
 
 echo
-echo "== Apply =="
-./scripts/apply.sh "$HOST"
+if [[ "$oldrev" != "$newrev" ]]; then
+  echo "== Apply (new commit detected, forcing rebuild) =="
+  FORCE=1 ./scripts/apply.sh "$HOST"
+else
+  echo "== Apply (no new commit) =="
+  ./scripts/apply.sh "$HOST"
+fi
 
 echo
 echo "Done."
-echo "Tip: FORCE=1 ./scripts/force-apply.sh $HOST  (rebuild even if no repo changes)"
