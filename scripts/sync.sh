@@ -6,37 +6,18 @@ REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 cd "$REPO"
 
-echo "== Repo: $REPO =="
-echo "== Host: $HOST =="
-echo
-
 oldrev="$(git rev-parse HEAD)"
 
-echo "== Git: fetch =="
-git fetch --prune
-
-echo
-echo "== Git: status before =="
-git status -sb
-
-echo
-echo "== Git: pull (rebase + autostash) =="
+echo "== Git pull =="
 git pull --rebase --autostash
 
 newrev="$(git rev-parse HEAD)"
+dirty="$(git status --porcelain || true)"
 
-echo
-echo "== Git: status after =="
-git status -sb
-
-echo
-if [[ "$oldrev" != "$newrev" ]]; then
-  echo "== Apply (new commit detected, forcing rebuild) =="
+if [[ "$oldrev" != "$newrev" || -n "$dirty" ]]; then
+  echo "== Apply (forcing) =="
   FORCE=1 ./scripts/apply.sh "$HOST"
 else
-  echo "== Apply (no new commit) =="
+  echo "== Apply =="
   ./scripts/apply.sh "$HOST"
 fi
-
-echo
-echo "Done."
