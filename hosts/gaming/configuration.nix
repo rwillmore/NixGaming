@@ -102,7 +102,7 @@
   # Helpful tools
   environment.systemPackages = with pkgs; [
     git
-    kate
+    kdePackages.kate
     vim
     wget
     curl
