@@ -188,6 +188,7 @@
     git
     nixgarbage
     leshade
+    nodejs
     (makeDesktopItem {
       name = "leshade";
       desktopName = "LeShade";
@@ -197,6 +198,10 @@
       terminal = false;
     })
   ];
+
+  environment.shellAliases = {
+    nixai = "cd /home/rwillmore/NixGaming && claude";
+  };
 
   system.stateVersion = "25.11";
 }
