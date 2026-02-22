@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:github.com)",
+      "Bash(NIX_CONFIG=\"experimental-features = nix-command flakes\" nix flake check 2>&1)"
+    ]
+  }
+}

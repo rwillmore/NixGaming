@@ -1,0 +1,37 @@
+{
+  description = "Rob's NixOS system flake";
+
+  inputs = {
+    nix-cachyos-kernel.url = "github:xddxdd/nix-cachyos-kernel/release";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+  };
+
+  outputs = { self, nixpkgs, nix-cachyos-kernel }:
+    let
+      system = "x86_64-linux";
+      pkgs = import nixpkgs {
+        inherit system;
+        config.allowUnfree = true;
+      };
+    in {
+      overlays.default = final: prev: {
+      nixgarbage = prev.callPackage ./pkgs/nixgarbage { };
+      leshade = prev.callPackage ./pkgs/leshade { };
+      nixhelpers-gui = prev.callPackage ./pkgs/nixhelpers-gui { };
+      };
+
+      packages. = {
+        leshade = pkgs.callPackage ./pkgs/leshade { };
+        nixhelpers-gui = pkgs.callPackage ./pkgs/nixhelpers-gui { };
+      };
+
+      nixosConfigurations.gaming = nixpkgs.lib.nixosSystem {
+        inherit system;
+        modules = [
+        ({ ... }: { nixpkgs.overlays = [ self.overlays.default ]; })
+          ({ ... }: { nixpkgs.overlays = [ nix-cachyos-kernel.overlays.pinned ]; })
+          ./hosts/gaming/configuration.nix
+        ];
+      };
+    };
+}

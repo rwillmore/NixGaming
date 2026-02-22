@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+REPO="$HOME/NixGaming"
+HOST="nixos"
+TMPLOCK="/tmp/flake.lock.new"
+
+cd "$REPO"
+
+case "${1:-}" in
+  status)
+    nix flake metadata --no-write-lock-file 2>/dev/null | sed -n '1,120p'
+    ;;
+  diff)
+    nix flake update --output-lock-file "$TMPLOCK"
+    diff -u flake.lock "$TMPLOCK" || true
+    ;;
+  update)
+    nix flake update
+    ;;
+  apply)
+    sudo nixos-rebuild switch --flake ".#${HOST}"
+    ;;
+  apply-local)
+    sudo nixos-rebuild switch --flake ".#${HOST}"
+    ;;
+  boot)
+    sudo nixos-rebuild boot --flake ".#${HOST}"
+    ;;
+  clean)
+    rm -f "$TMPLOCK"
+    ;;
+  *)
+    echo "Usage: nx {status|diff|update|apply|apply-local|boot|clean}"
+    exit 1
+    ;;
+esac
