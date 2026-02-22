@@ -39,6 +39,9 @@
     # NVIDIA: skip zeroing system memory on driver init
     "nvidia.NVreg_InitializeSystemMemoryAllocations=0"
 
+    # NVIDIA: disable GSP firmware — reduces GPU interrupt latency on 30xx/40xx
+    "nvidia.NVreg_EnableGpuFirmware=0"
+
     # Reduce NMI watchdog interrupt jitter
     "nmi_watchdog=0"
 
@@ -157,6 +160,15 @@
       support32Bit = true;
     };
     pulse.enable = true;
+    extraConfig.pipewire."92-gaming-latency" = {
+      "context.properties" = {
+        "default.clock.rate" = 48000;
+        # 64 frames @ 48kHz ≈ 1.3ms — low latency for gaming audio
+        "default.clock.quantum" = 64;
+        "default.clock.min-quantum" = 64;
+        "default.clock.max-quantum" = 64;
+      };
+    };
   };
 
   zramSwap = {
