@@ -70,7 +70,7 @@
 
   services.displayManager.sddm = {
     enable = true;
-    wayland.enable = false;
+    wayland.enable = true;
 
     settings = {
       Theme = {
@@ -91,6 +91,9 @@
   };
 
   services.desktopManager.plasma6.enable = true;
+  services.desktopManager.gnome.enable = true;
+
+  programs.ssh.askPassword = "${pkgs.kdePackages.ksshaskpass}/bin/ksshaskpass";
 
   nixpkgs.config.allowUnfree = true;
 
