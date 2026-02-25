@@ -27,6 +27,7 @@
 
       nixosConfigurations.gaming = nixpkgs.lib.nixosSystem {
         inherit system;
+        specialArgs = { inherit nix-cachyos-kernel; };
         modules = [
           ({ ... }: { nixpkgs.overlays = [ self.overlays.default nix-cachyos-kernel.overlays.pinned ]; })
           ./hosts/gaming/configuration.nix

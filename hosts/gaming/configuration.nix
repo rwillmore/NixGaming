@@ -49,6 +49,11 @@
     "transparent_hugepage=madvise"
   ];
 
+  boot.extraModprobeConfig = ''
+    options nvidia_drm modeset=1 fbdev=1
+    options snd-hda-intel power_save=0
+  '';
+
   powerManagement.cpuFreqGovernor = "performance";
 
   networking = {
@@ -190,6 +195,23 @@
     ACTION=="add|change", KERNEL=="nvme[0-9]n[0-9]", ATTR{queue/scheduler}="none"
     # SATA SSD: mq-deadline for low-latency deterministic I/O
     ACTION=="add|change", KERNEL=="sd[a-z]", ATTR{queue/rotational}=="0", ATTR{queue/scheduler}="mq-deadline"
+    # SATA host link power management for maximum performance
+    ACTION=="add", SUBSYSTEM=="scsi_host", KERNEL=="host*", ATTR{link_power_management_policy}="max_performance"
+    # HPET/RTC permissions for low-latency audio
+    KERNEL=="rtc0", GROUP="audio"
+    KERNEL=="hpet", GROUP="audio"
+  '';
+
+  # File descriptor limits for esync/fsync (Steam/Proton)
+  systemd.settings.Manager = {
+    DefaultLimitNOFILE = "2048:2097152";
+    DefaultTimeoutStartSec = "15s";
+    DefaultTimeoutStopSec = "10s";
+  };
+
+  # Cap journal size to reduce I/O overhead
+  services.journald.extraConfig = ''
+    SystemMaxUse=50M
   '';
 
   users.users.rwillmore = {
