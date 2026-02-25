@@ -1,16 +1,17 @@
-{ config, pkgs, ... }:
+{ config, pkgs, nix-cachyos-kernel, ... }:
 
 {
   imports = [
     ./hardware-configuration.nix
-    ./kernel.nix
-    ./network.nix
     ./qos.nix
   ];
 
+  # ============================================================
+  # NIX SETTINGS
+  # ============================================================
+
   nix.settings = {
     experimental-features = [ "nix-command" "flakes" ];
-
     max-jobs = "auto";
     cores = 0;
 
@@ -25,6 +26,14 @@
       "lantian:EeAUQ+W+6r7EtwnmYjeVwx5kOGEBpjlBfPlzGlTNvHc="
     ];
   };
+
+  # ============================================================
+  # KERNEL
+  # ============================================================
+
+  # CachyOS kernel: BORE scheduler, Clang/ThinLTO, AutoFDO, Zen 4 native
+  boot.kernelPackages = pkgs.linuxPackagesFor
+    nix-cachyos-kernel.hydraJobs.packages.x86_64-linux.linux-cachyos-latest-lto-zen4;
 
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
@@ -50,19 +59,79 @@
   ];
 
   boot.extraModprobeConfig = ''
-    options nvidia_drm modeset=1 fbdev=1
+    options nvidia_drm modeset=1
     options snd-hda-intel power_save=0
   '';
 
+  # ============================================================
+  # SYSCTL — NETWORK & MEMORY
+  # ============================================================
+
+  boot.kernel.sysctl = {
+    # Queue discipline + congestion control
+    "net.core.default_qdisc" = "fq";
+    "net.ipv4.tcp_congestion_control" = "bbr";
+
+    # Backlog/buffer knobs
+    "net.core.netdev_max_backlog" = 16384;
+    "net.core.somaxconn" = 8192;
+    "net.ipv4.tcp_max_syn_backlog" = 8192;
+
+    # Socket buffer ceilings
+    "net.core.rmem_max" = 33554432;
+    "net.core.wmem_max" = 33554432;
+    "net.ipv4.tcp_rmem" = "4096 1048576 33554432";
+    "net.ipv4.tcp_wmem" = "4096 1048576 33554432";
+
+    # Modern TCP behavior
+    "net.ipv4.tcp_mtu_probing" = 1;
+    "net.ipv4.tcp_fastopen" = 3;
+    "net.ipv4.tcp_slow_start_after_idle" = 0;
+
+    # TCP keepalive — reduces stale connection overhead
+    "net.ipv4.tcp_keepalive_time" = 60;
+    "net.ipv4.tcp_keepalive_intvl" = 10;
+    "net.ipv4.tcp_keepalive_probes" = 6;
+
+    # swappiness=100 is intentional: zramSwap is enabled, zram is faster than evicting hot pages
+    "vm.swappiness" = 100;
+
+    # Byte-based dirty tracking — more predictable on large-RAM systems than ratio-based
+    "vm.dirty_bytes" = 419430400;            # 400MB
+    "vm.dirty_background_bytes" = 209715200; # 200MB
+
+    "vm.compaction_proactiveness" = 0; # disable proactive memory compaction; reduces latency jitter
+    "kernel.split_lock_mitigate" = 0;  # don't throttle split-lock accesses; games commonly trigger these
+    "vm.page-cluster" = 0;             # disable swap readahead clustering — correct behavior with zram
+    "vm.vfs_cache_pressure" = 50;      # less aggressive VFS cache reclaim
+    "kernel.unprivileged_userns_clone" = 1; # needed for Steam sandbox, Flatpak
+  };
+
+  # ============================================================
+  # POWER & CPU
+  # ============================================================
+
   powerManagement.cpuFreqGovernor = "performance";
+
+  # ============================================================
+  # NETWORKING
+  # ============================================================
 
   networking = {
     hostName = "gaming";
     networkmanager.enable = true;
   };
 
+  # ============================================================
+  # LOCALE
+  # ============================================================
+
   time.timeZone = "America/Chicago";
   i18n.defaultLocale = "en_US.UTF-8";
+
+  # ============================================================
+  # DISPLAY — SDDM + KDE PLASMA
+  # ============================================================
 
   services.xserver.enable = true;
 
@@ -83,11 +152,9 @@
         CursorTheme = "breeze_cursors";
         CursorSize = 48;
       };
-
       General = {
         GreeterEnvironment = "QT_SCALE_FACTOR=2,QT_ENABLE_HIGHDPI_SCALING=1";
       };
-
       X11 = {
         EnableHiDPI = true;
         ServerArguments = "-nolisten tcp -dpi 192";
@@ -99,6 +166,10 @@
   services.desktopManager.gnome.enable = true;
 
   programs.ssh.askPassword = "${pkgs.kdePackages.ksshaskpass}/bin/ksshaskpass";
+
+  # ============================================================
+  # NVIDIA
+  # ============================================================
 
   nixpkgs.config.allowUnfree = true;
 
@@ -117,6 +188,10 @@
     enable = true;
     enable32Bit = true;
   };
+
+  # ============================================================
+  # GAMING
+  # ============================================================
 
   hardware.steam-hardware.enable = true;
 
@@ -139,26 +214,9 @@
     capSysNice = true;
   };
 
-  programs.nix-ld = {
-    enable = true;
-    libraries = with pkgs; [
-      stdenv.cc.cc
-      zlib
-      openssl
-
-      libx11
-      libxext
-      libxrender
-      libxrandr
-      libxi
-      libxcursor
-      libxxf86vm
-
-      libGL
-      alsa-lib
-      pulseaudio
-    ];
-  };
+  # ============================================================
+  # AUDIO
+  # ============================================================
 
   security.rtkit.enable = true;
   services.pipewire = {
@@ -179,16 +237,14 @@
     };
   };
 
+  # ============================================================
+  # STORAGE & MEMORY
+  # ============================================================
+
   zramSwap = {
     enable = true;
     algorithm = "zstd";
   };
-
-  # Flatpak support (needed for Hytale launcher bundle and its runtimes)
-  services.flatpak.enable = true;
-
-  # Portals help Flatpak apps integrate with KDE (file pickers, etc.)
-  xdg.portal.extraPortals = [ pkgs.xdg-desktop-portal-gtk ];
 
   services.udev.extraRules = ''
     # NVMe: no software scheduler; hardware queues handle ordering
@@ -202,6 +258,10 @@
     KERNEL=="hpet", GROUP="audio"
   '';
 
+  # ============================================================
+  # SYSTEMD
+  # ============================================================
+
   # File descriptor limits for esync/fsync (Steam/Proton)
   systemd.settings.Manager = {
     DefaultLimitNOFILE = "2048:2097152";
@@ -214,12 +274,49 @@
     SystemMaxUse=50M
   '';
 
+  # ============================================================
+  # FLATPAK & PORTALS
+  # ============================================================
+
+  services.flatpak.enable = true;
+  xdg.portal.extraPortals = [ pkgs.xdg-desktop-portal-gtk ];
+
+  # ============================================================
+  # NIX-LD (dynamic linking for non-NixOS binaries)
+  # ============================================================
+
+  programs.nix-ld = {
+    enable = true;
+    libraries = with pkgs; [
+      stdenv.cc.cc
+      zlib
+      openssl
+      libx11
+      libxext
+      libxrender
+      libxrandr
+      libxi
+      libxcursor
+      libxxf86vm
+      libGL
+      alsa-lib
+      pulseaudio
+    ];
+  };
+
+  # ============================================================
+  # USERS
+  # ============================================================
+
   users.users.rwillmore = {
     isNormalUser = true;
     extraGroups = [ "networkmanager" "wheel" ];
   };
 
-  # Install LeShade system wide plus add KDE launcher entry
+  # ============================================================
+  # PACKAGES & ENVIRONMENT
+  # ============================================================
+
   environment.systemPackages = with pkgs; [
     nixupdate-tray
     git
