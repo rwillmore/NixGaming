@@ -318,6 +318,7 @@
   # ============================================================
 
   environment.systemPackages = with pkgs; [
+    pkgs.htop-vim
     nixupdate-tray
     git
     nixgarbage
