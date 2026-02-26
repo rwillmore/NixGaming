@@ -333,6 +333,10 @@
     })
   ];
 
+  environment.sessionVariables = {
+    IBUS_USE_PORTAL = "1";
+  };
+
   environment.shellAliases = {
     nixai = "cd /home/rwillmore/NixGaming && claude";
   };
