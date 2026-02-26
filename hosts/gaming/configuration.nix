@@ -318,7 +318,6 @@
   # ============================================================
 
   environment.systemPackages = with pkgs; [
-    pkgs.nvidia
     nixupdate-tray
     git
     nixgarbage
