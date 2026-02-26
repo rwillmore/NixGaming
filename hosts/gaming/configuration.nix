@@ -35,7 +35,8 @@
   boot.kernelPackages = pkgs.linuxPackagesFor
     nix-cachyos-kernel.hydraJobs.packages.x86_64-linux.linux-cachyos-latest-lto-zen4;
 
-  boot.loader.limine.enable = true;
+  boot.loader.systemd-boot.enable = true;
+  boot.loader.efi.canTouchEfiVariables = true;
 
   boot.kernelParams = [
     # CPU vulnerability mitigations disabled — intentional performance choice
