@@ -318,6 +318,7 @@
   # ============================================================
 
   environment.systemPackages = with pkgs; [
+    pkgs.vlc
     pkgs.htop-vim
     nixupdate-tray
     git
