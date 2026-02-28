@@ -23,8 +23,8 @@ let
   src = fetchFromGitHub {
     owner = "rwillmore";
     repo = "nixos-manager";
-    rev = "c65a18b80804966974532722b9acf2756b0663ce";
-    hash = "sha256-DT45GbstWJYjeky7lxO53UieFMUl4Txhu7psfbKwnmA=";
+    rev = "2dfeca9ea57f9044253a40c8dd6a05907589f66e";
+    hash = "sha256-8n7m6zntHueYPxUvUW2EP8lu/VmETCV7phCEag22YfY=";
   };
 
   frontend = buildNpmPackage {
