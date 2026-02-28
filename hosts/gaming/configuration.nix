@@ -1,4 +1,4 @@
-{ config, pkgs, nix-cachyos-kernel, ... }:
+{ config, pkgs, nix-cachyos-kernel, nixos-conf-editor, ... }:
 
 {
   imports = [
@@ -15,7 +15,7 @@
     max-jobs = "auto";
     cores = 0;
 
-    # CachyOS kernel binary cache (prevents local kernel recompiles)
+    # CachyOS kernel binary cache
     substituters = [
       "https://cache.nixos.org"
       "https://attic.xuyh0120.win/lantian"
@@ -31,7 +31,6 @@
   # KERNEL
   # ============================================================
 
-  # CachyOS kernel: BORE scheduler, Clang/ThinLTO, AutoFDO, Zen 4 native
   boot.kernelPackages = pkgs.linuxPackagesFor
     nix-cachyos-kernel.hydraJobs.packages.x86_64-linux.linux-cachyos-latest-lto-zen4;
 
@@ -39,22 +38,11 @@
   boot.loader.efi.canTouchEfiVariables = true;
 
   boot.kernelParams = [
-    # CPU vulnerability mitigations disabled — intentional performance choice
-    # for a single-user gaming desktop (measurable gain on Zen 4 in particular)
     "mitigations=off"
-
-    # NVIDIA: enable PAT for better VRAM throughput
     "nvidia.NVreg_UsePageAttributeTable=1"
-    # NVIDIA: skip zeroing system memory on driver init
     "nvidia.NVreg_InitializeSystemMemoryAllocations=0"
-
-    # NVIDIA: disable GSP firmware — reduces GPU interrupt latency on 30xx/40xx
     "nvidia.NVreg_EnableGpuFirmware=0"
-
-    # Reduce NMI watchdog interrupt jitter
     "nmi_watchdog=0"
-
-    # THP: let apps opt in rather than forcing always/never
     "transparent_hugepage=madvise"
   ];
 
@@ -64,51 +52,44 @@
   '';
 
   # ============================================================
-  # SYSCTL — NETWORK & MEMORY
+  # SYSCTL
   # ============================================================
 
   boot.kernel.sysctl = {
-    # Queue discipline + congestion control
     "net.core.default_qdisc" = "fq";
     "net.ipv4.tcp_congestion_control" = "bbr";
 
-    # Backlog/buffer knobs
     "net.core.netdev_max_backlog" = 16384;
     "net.core.somaxconn" = 8192;
     "net.ipv4.tcp_max_syn_backlog" = 8192;
 
-    # Socket buffer ceilings
     "net.core.rmem_max" = 33554432;
     "net.core.wmem_max" = 33554432;
     "net.ipv4.tcp_rmem" = "4096 1048576 33554432";
     "net.ipv4.tcp_wmem" = "4096 1048576 33554432";
 
-    # Modern TCP behavior
     "net.ipv4.tcp_mtu_probing" = 1;
     "net.ipv4.tcp_fastopen" = 3;
     "net.ipv4.tcp_slow_start_after_idle" = 0;
 
-    # TCP keepalive — reduces stale connection overhead
     "net.ipv4.tcp_keepalive_time" = 60;
     "net.ipv4.tcp_keepalive_intvl" = 10;
     "net.ipv4.tcp_keepalive_probes" = 6;
 
-    # swappiness=100 is intentional: zramSwap is enabled, zram is faster than evicting hot pages
     "vm.swappiness" = 100;
 
-    # Byte-based dirty tracking — more predictable on large-RAM systems than ratio-based
-    "vm.dirty_bytes" = 419430400;            # 400MB
-    "vm.dirty_background_bytes" = 209715200; # 200MB
+    "vm.dirty_bytes" = 419430400;
+    "vm.dirty_background_bytes" = 209715200;
 
-    "vm.compaction_proactiveness" = 0; # disable proactive memory compaction; reduces latency jitter
-    "kernel.split_lock_mitigate" = 0;  # don't throttle split-lock accesses; games commonly trigger these
-    "vm.page-cluster" = 0;             # disable swap readahead clustering — correct behavior with zram
-    "vm.vfs_cache_pressure" = 50;      # less aggressive VFS cache reclaim
-    "kernel.unprivileged_userns_clone" = 1; # needed for Steam sandbox, Flatpak
+    "vm.compaction_proactiveness" = 0;
+    "kernel.split_lock_mitigate" = 0;
+    "vm.page-cluster" = 0;
+    "vm.vfs_cache_pressure" = 50;
+    "kernel.unprivileged_userns_clone" = 1;
   };
 
   # ============================================================
-  # POWER & CPU
+  # POWER
   # ============================================================
 
   powerManagement.cpuFreqGovernor = "performance";
@@ -130,13 +111,11 @@
   i18n.defaultLocale = "en_US.UTF-8";
 
   # ============================================================
-  # DISPLAY — SDDM + KDE PLASMA
+  # DISPLAY
   # ============================================================
 
   services.xserver.enable = true;
 
-  # Force a lower resolution for the SDDM greeter so it appears effectively scaled on 4K.
-  # Plasma should switch back to your normal resolution after login.
   services.xserver.displayManager.setupCommands = ''
     OUT="$(${pkgs.xrandr}/bin/xrandr --query | awk '/ connected/{print $1; exit}')"
     [ -n "$OUT" ] && ${pkgs.xrandr}/bin/xrandr --output "$OUT" --mode 1920x1080 || true
@@ -179,7 +158,6 @@
     open = false;
     nvidiaSettings = true;
     package = config.boot.kernelPackages.nvidiaPackages.latest;
-    # Eliminates desktop tearing; fullscreen games bypass compositing and are unaffected
     forceFullCompositionPipeline = true;
     powerManagement.enable = true;
   };
@@ -194,7 +172,6 @@
   # ============================================================
 
   hardware.steam-hardware.enable = true;
-
   programs.steam.enable = true;
 
   programs.gamemode = {
@@ -219,6 +196,7 @@
   # ============================================================
 
   security.rtkit.enable = true;
+
   services.pipewire = {
     enable = true;
     alsa = {
@@ -229,7 +207,6 @@
     extraConfig.pipewire."92-gaming-latency" = {
       "context.properties" = {
         "default.clock.rate" = 48000;
-        # 64 frames @ 48kHz ≈ 1.3ms — low latency for gaming audio
         "default.clock.quantum" = 64;
         "default.clock.min-quantum" = 64;
         "default.clock.max-quantum" = 64;
@@ -238,7 +215,7 @@
   };
 
   # ============================================================
-  # STORAGE & MEMORY
+  # STORAGE
   # ============================================================
 
   zramSwap = {
@@ -247,13 +224,9 @@
   };
 
   services.udev.extraRules = ''
-    # NVMe: no software scheduler; hardware queues handle ordering
     ACTION=="add|change", KERNEL=="nvme[0-9]n[0-9]", ATTR{queue/scheduler}="none"
-    # SATA SSD: mq-deadline for low-latency deterministic I/O
     ACTION=="add|change", KERNEL=="sd[a-z]", ATTR{queue/rotational}=="0", ATTR{queue/scheduler}="mq-deadline"
-    # SATA host link power management for maximum performance
     ACTION=="add", SUBSYSTEM=="scsi_host", KERNEL=="host*", ATTR{link_power_management_policy}="max_performance"
-    # HPET/RTC permissions for low-latency audio
     KERNEL=="rtc0", GROUP="audio"
     KERNEL=="hpet", GROUP="audio"
   '';
@@ -262,14 +235,12 @@
   # SYSTEMD
   # ============================================================
 
-  # File descriptor limits for esync/fsync (Steam/Proton)
   systemd.settings.Manager = {
     DefaultLimitNOFILE = "2048:2097152";
     DefaultTimeoutStartSec = "15s";
     DefaultTimeoutStopSec = "10s";
   };
 
-  # Cap journal size to reduce I/O overhead
   services.journald.extraConfig = ''
     SystemMaxUse=50M
   '';
@@ -282,7 +253,7 @@
   xdg.portal.extraPortals = [ pkgs.xdg-desktop-portal-gtk ];
 
   # ============================================================
-  # NIX-LD (dynamic linking for non-NixOS binaries)
+  # NIX-LD
   # ============================================================
 
   programs.nix-ld = {
@@ -325,6 +296,9 @@
     nixgarbage
     leshade
     nodejs
+
+    nixos-conf-editor.packages.${pkgs.system}.nixos-conf-editor
+
     (makeDesktopItem {
       name = "leshade";
       desktopName = "LeShade";
@@ -338,7 +312,6 @@
   environment.sessionVariables = {
     IBUS_USE_PORTAL = "1";
   };
-
 
   environment.shellAliases = {
     nixai = "cd /home/rwillmore/NixGaming && claude";
