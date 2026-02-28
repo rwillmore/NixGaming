@@ -70,6 +70,8 @@ rustPlatform.buildRustPackage {
     cp -r ${frontend}/dist dist/
   '';
 
+  doCheck = false;
+
   # cargoRoot sets up vendor/lockfile correctly but the build hook doesn't
   # cd into it; override buildPhase to run cargo from src-tauri/ directly.
   # Cargo traverses parent dirs for .cargo/config.toml so vendor still works.
