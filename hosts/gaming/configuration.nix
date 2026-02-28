@@ -289,7 +289,6 @@
   # ============================================================
 
   environment.systemPackages = with pkgs; [
-    pkgs.vlc
     pkgs.htop-vim
     nixupdate-tray
     git
@@ -297,7 +296,17 @@
     leshade
     nodejs
 
+    nixie
     nixos-conf-editor.packages.${pkgs.system}.nixos-conf-editor
+
+    (makeDesktopItem {
+      name = "nixie";
+      desktopName = "Nixie";
+      exec = "nixie";
+      comment = "NixOS flake config manager";
+      categories = [ "System" "Settings" ];
+      terminal = false;
+    })
 
     (makeDesktopItem {
       name = "leshade";

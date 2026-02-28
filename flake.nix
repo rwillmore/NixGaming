@@ -20,6 +20,7 @@
         nixupdate-tray = prev.callPackage ./pkgs/nixupdate-tray { };
         nixgarbage     = prev.callPackage ./pkgs/nixgarbage { };
         leshade        = prev.callPackage ./pkgs/leshade { };
+        nixie          = prev.callPackage ./pkgs/nixie { };
       };
 
       packages.${system} = {
