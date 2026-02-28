@@ -24,8 +24,8 @@ let
   src = fetchFromGitHub {
     owner = "rwillmore";
     repo = "nixos-manager";
-    rev = "8c227020f5234c530e2b9699f0e2ed9c2f482374";
-    hash = "sha256-ROwdXoV8UYs4/699Y197Z+qLxgJQl6yDA9+0h4AmORU=";
+    rev = "a9b6d3269f4d35de4361cf0079f4ae2387daf8cd";
+    hash = "sha256-+E2VE4a1EYTRsahf5ClzRWQksodSk0KjTPIjaq2HHuQ=";
   };
 
   desktopFile = makeDesktopItem {
