@@ -70,6 +70,17 @@ rustPlatform.buildRustPackage {
     cp -r ${frontend}/dist dist/
   '';
 
+  # cargoRoot sets up vendor/lockfile correctly but the build hook doesn't
+  # cd into it; override buildPhase to run cargo from src-tauri/ directly.
+  # Cargo traverses parent dirs for .cargo/config.toml so vendor still works.
+  buildPhase = ''
+    runHook preBuild
+    pushd src-tauri
+    cargo build --release --offline
+    popd
+    runHook postBuild
+  '';
+
   installPhase = ''
     runHook preInstall
     install -Dm755 src-tauri/target/release/nixie $out/bin/nixie
