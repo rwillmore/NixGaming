@@ -24,8 +24,8 @@ let
   src = fetchFromGitHub {
     owner = "rwillmore";
     repo = "nixos-manager";
-    rev = "fda9f316b3872232991e4c59ed2021b7dc9ff6f5";
-    hash = "sha256-VFhViDYSCXfKIC52S97gA5mglmMw+SnjftQMiZsCag0=";
+    rev = "8c227020f5234c530e2b9699f0e2ed9c2f482374";
+    hash = "sha256-ROwdXoV8UYs4/699Y197Z+qLxgJQl6yDA9+0h4AmORU=";
   };
 
   desktopFile = makeDesktopItem {
@@ -83,6 +83,14 @@ rustPlatform.buildRustPackage {
   '';
 
   doCheck = false;
+
+  # Prepend NixOS system paths so the app can find nix, git, sudo, etc.
+  # when launched from a KDE desktop session without a login shell.
+  preFixup = ''
+    gappsWrapperArgs+=(
+      --prefix PATH : /run/wrappers/bin:/run/current-system/sw/bin
+    )
+  '';
 
   # cargoRoot sets up vendor/lockfile correctly but the build hook doesn't
   # cd into it; override buildPhase to run cargo from src-tauri/ directly.
