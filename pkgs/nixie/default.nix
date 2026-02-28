@@ -2,6 +2,7 @@
 , rustPlatform
 , fetchFromGitHub
 , buildNpmPackage
+, makeDesktopItem
 , pkg-config
 , openssl
 , dbus
@@ -23,8 +24,19 @@ let
   src = fetchFromGitHub {
     owner = "rwillmore";
     repo = "nixos-manager";
-    rev = "2dfeca9ea57f9044253a40c8dd6a05907589f66e";
-    hash = "sha256-8n7m6zntHueYPxUvUW2EP8lu/VmETCV7phCEag22YfY=";
+    rev = "fda9f316b3872232991e4c59ed2021b7dc9ff6f5";
+    hash = "sha256-VFhViDYSCXfKIC52S97gA5mglmMw+SnjftQMiZsCag0=";
+  };
+
+  desktopFile = makeDesktopItem {
+    name = "nixie";
+    desktopName = "Nixie";
+    exec = "nixie";
+    icon = "nixie";
+    comment = "NixOS flake config manager";
+    categories = [ "System" "Settings" ];
+    terminal = false;
+    startupWMClass = "nixie";
   };
 
   frontend = buildNpmPackage {
@@ -86,6 +98,10 @@ rustPlatform.buildRustPackage {
   installPhase = ''
     runHook preInstall
     install -Dm755 src-tauri/target/release/nixie $out/bin/nixie
+    install -Dm644 src-tauri/icons/128x128@2x.png \
+      $out/share/icons/hicolor/256x256/apps/nixie.png
+    install -Dm644 ${desktopFile}/share/applications/nixie.desktop \
+      $out/share/applications/nixie.desktop
     runHook postInstall
   '';
 
