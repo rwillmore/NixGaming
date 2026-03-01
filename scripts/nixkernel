@@ -1,0 +1,378 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Resize terminal to avoid text wrapping
+printf '\033[8;40;130t'
+sleep 0.1
+
+REPO="/home/rwillmore/NixGaming"
+CONFIG="$REPO/hosts/gaming/configuration.nix"
+LOG="$HOME/.local/share/kerneltest.log"
+mkdir -p "$(dirname "$LOG")"
+
+# ============================================================
+# HELPERS
+# ============================================================
+
+# Unicode-aware display width
+dlen() {
+  echo -n "$1" | wc -m
+}
+
+# Box line — builds padding as a plain string, avoids printf %*s with unicode
+pad_line() {
+  local label="$1"
+  local value="$2"
+  local content="${label}${value}"
+  local visible
+  visible=$(dlen "$content")
+  local pad=$(( W - visible ))
+  local spaces
+  spaces=$(printf '%*s' "$pad" '')
+  echo "  ║${content}${spaces}║"
+}
+
+info_line() {
+  local text="$1"
+  local visible
+  visible=$(dlen "$text")
+  local pad=$(( W - visible ))
+  local spaces
+  spaces=$(printf '%*s' "$pad" '')
+  echo "  ║${text}${spaces}║"
+}
+
+print_menu() {
+  local title="$1"
+  shift
+  echo ""
+  echo "  $title"
+  echo "  $(printf '─%.0s' $(seq 1 $(dlen "$title")))"
+  local i=1
+  for item in "$@"; do
+    printf "  %2d) %s\n" "$i" "$item"
+    ((i++))
+  done
+  echo ""
+}
+
+pick() {
+  local prompt="$1"
+  local max="$2"
+  local choice
+  while true; do
+    read -rp "  $prompt [1-$max]: " choice
+    if [[ "$choice" =~ ^[0-9]+$ ]] && (( choice >= 1 && choice <= max )); then
+      echo "$choice"
+      return
+    fi
+    echo "  Invalid choice, try again."
+  done
+}
+
+# ============================================================
+# STABLE KERNELS
+# type = cachyos → nix-cachyos-kernel.hydraJobs.packages.x86_64-linux.<attr>
+# type = nixpkgs → pkgs.<attr>
+# ============================================================
+
+STABLE_NAMES=(
+  "★★★  cachyos-latest-lto-zen4  | Best overall: Clang/ThinLTO+AutoFDO, BORE, Zen4 CPU opts, binary cache"
+  "★★★  cachyos-bore-lto         | Best no-sched_ext: dedicated BORE, Clang/LTO, zero scheduler overhead"
+  "★★☆  cachyos-lts-lto-zen4    | Stability pick: LTS base, Zen4 optimized, rock solid"
+  "★★☆  xanmod-latest            | Best non-CachyOS: Wine/gaming patches, preemptive, tickless, no Zen4"
+  "★★☆  zen                      | Solid gaming kernel, desktop-focused, nixpkgs built-in, no Zen4"
+  "★★☆  lqx (Liquorix)           | Gaming + multimedia focused, nixpkgs built-in, no Zen4"
+  "★☆☆  cachyos-deckify-lto      | Steam Deck tuned: low-power handheld patches, lower desktop ceiling"
+  "★☆☆  cachyos-rt-bore-lto      | Real-time + BORE: ultra-low latency but hurts game throughput"
+  "★☆☆  cachyos-lto              | Generic baseline: latest CachyOS, no Zen4, comparison use only"
+)
+STABLE_TYPES=( cachyos cachyos cachyos nixpkgs nixpkgs nixpkgs cachyos cachyos cachyos )
+STABLE_ATTRS=(
+  "linux-cachyos-latest-lto-zen4"
+  "linux-cachyos-bore-lto"
+  "linux-cachyos-lts-lto-zen4"
+  "linuxPackages_xanmod_latest"
+  "linuxPackages_zen"
+  "linuxPackages_lqx"
+  "linux-cachyos-deckify-lto"
+  "linux-cachyos-rt-bore-lto"
+  "linux-cachyos-lto"
+)
+
+# ============================================================
+# EXPERIMENTAL / RC KERNELS
+# ============================================================
+
+RC_NAMES=(
+  "⚠ ★★☆  cachyos-rc-lto  | RC + Clang/LTO + BORE: newest features, reasonably optimized, local build required"
+  "⚠ ★☆☆  cachyos-rc      | RC + GCC, no LTO: rawest bleeding edge, highest risk, slowest build"
+)
+RC_TYPES=( cachyos cachyos )
+RC_ATTRS=( "linux-cachyos-rc-lto" "linux-cachyos-rc" )
+
+# ============================================================
+# SCHEDULERS
+# ============================================================
+
+SCHED_NAMES=(
+  "★★★  scx_lavd     | Best for gaming: purpose-built, minimizes stutter, latency-aware virtual deadline"
+  "★★★  scx_bpfland  | Best for gaming+multitasking: cache-topology aware, great with background tasks"
+  "★★☆  bore         | Best zero-overhead: built into CachyOS kernel, no sched_ext service needed"
+  "★☆☆  none (EEVDF) | Stock Linux scheduler: clean baseline for benchmarking, no gaming optimization"
+)
+SCHED_IDS=( scx_lavd scx_bpfland bore none )
+
+# ============================================================
+# DETECT CURRENT STATE
+# ============================================================
+
+current_kernel=$(grep -oP 'linux-cachyos-[a-z0-9-]+|linuxPackages_\w+' "$CONFIG" | head -1)
+current_kernel="${current_kernel:-unknown}"
+
+if [[ "$current_kernel" == linux-cachyos-* ]]; then
+  current_type="cachyos"
+else
+  current_type="nixpkgs"
+fi
+
+current_sched="unknown"
+if systemctl is-active --quiet scx_loader 2>/dev/null; then
+  current_sched=$(scx_loader status 2>/dev/null | grep -oP 'scx_\w+' | head -1 || echo "scx_loader active")
+elif systemctl is-active --quiet scx 2>/dev/null; then
+  current_sched=$(systemctl show scx --property=ExecStart 2>/dev/null | grep -oP 'scx_\w+' | head -1 || echo "scx active")
+else
+  bore_check=$(zcat /proc/config.gz 2>/dev/null | grep 'CONFIG_SCHED_BORE' || true)
+  if [[ "$bore_check" == *"=y"* ]]; then
+    current_sched="bore (built-in, no sched_ext running)"
+  else
+    current_sched="eevdf (stock)"
+  fi
+fi
+
+current_kernel_path=$(readlink -f /run/current-system/kernel 2>/dev/null || echo "")
+cache_status="unknown"
+if [[ -n "$current_kernel_path" ]]; then
+  if nix path-info --store https://attic.xuyh0120.win/lantian "$current_kernel_path" &>/dev/null; then
+    cache_status="confirmed in binary cache"
+  else
+    cache_status="was built locally (not from cache)"
+  fi
+fi
+
+# ============================================================
+# HEADER
+# ============================================================
+
+W=62
+border_top="  ╔$(printf '═%.0s' $(seq 1 $W))╗"
+border_mid="  ╠$(printf '═%.0s' $(seq 1 $W))╣"
+border_bot="  ╚$(printf '═%.0s' $(seq 1 $W))╝"
+
+clear
+echo ""
+echo "$border_top"
+info_line "  NixOS Kernel + Scheduler Lab"
+echo "$border_mid"
+pad_line "  Kernel:      " "$current_kernel"
+pad_line "  Scheduler:   " "$current_sched"
+pad_line "  Kernel src:  " "$cache_status"
+echo "$border_mid"
+info_line "  Scheduler switches are instant — no rebuild needed"
+info_line "  CachyOS kernels pull from binary cache (fast)"
+info_line "  XanMod / Zen / LQX / RC build locally (slow 1st run)"
+
+echo "$border_bot"
+
+# ============================================================
+# KERNEL CATEGORY
+# ============================================================
+
+print_menu "Kernel category:" \
+  "Stable       — tested, recommended for daily use" \
+  "Experimental — RC / pre-release kernels, may break things"
+
+category_choice=$(pick "Category" 2)
+
+if (( category_choice == 1 )); then
+  kernel_list_names=("${STABLE_NAMES[@]}")
+  kernel_list_types=("${STABLE_TYPES[@]}")
+  kernel_list_attrs=("${STABLE_ATTRS[@]}")
+else
+  echo ""
+  echo "  ⚠  RC kernels track pre-release Linux versions."
+  echo "     No Zen4-specific builds exist for RC variants."
+  echo "     Expect occasional build failures or instability."
+  kernel_list_names=("${RC_NAMES[@]}")
+  kernel_list_types=("${RC_TYPES[@]}")
+  kernel_list_attrs=("${RC_ATTRS[@]}")
+fi
+
+print_menu "Select kernel:" "${kernel_list_names[@]}"
+kernel_choice=$(pick "Kernel" "${#kernel_list_names[@]}")
+selected_kernel="${kernel_list_attrs[$((kernel_choice-1))]}"
+selected_type="${kernel_list_types[$((kernel_choice-1))]}"
+
+# ============================================================
+# SCHEDULER
+# ============================================================
+
+print_menu "Select scheduler:" "${SCHED_NAMES[@]}"
+sched_choice=$(pick "Scheduler" "${#SCHED_NAMES[@]}")
+selected_sched="${SCHED_IDS[$((sched_choice-1))]}"
+
+# ============================================================
+# CONFIRM + PRE-FLIGHT CACHE CHECK
+# ============================================================
+
+echo ""
+echo "$border_top"
+info_line "  Selected combination"
+echo "$border_mid"
+pad_line "  Kernel:    " "$selected_kernel"
+pad_line "  Scheduler: " "$selected_sched"
+echo "$border_bot"
+
+kernel_changed=false
+[[ "$selected_kernel" != "$current_kernel" ]] && kernel_changed=true
+
+if $kernel_changed && [[ "$selected_type" == "cachyos" ]]; then
+  echo ""
+  echo "  → Checking if $selected_kernel is in binary cache..."
+  kernel_store_path=$(nix eval --raw \
+    "github:xddxdd/nix-cachyos-kernel/release#packages.x86_64-linux.${selected_kernel}.outPath" \
+    2>/dev/null || echo "")
+
+  if [[ -n "$kernel_store_path" ]]; then
+    if nix path-info --store https://attic.xuyh0120.win/lantian "$kernel_store_path" &>/dev/null; then
+      echo "  ✓ Found in binary cache — rebuild will be fast"
+    else
+      echo "  ⚠ Not found in binary cache — this will build locally (30-60+ min)"
+      read -rp "  Continue anyway? [y/N]: " cache_confirm
+      [[ "$cache_confirm" =~ ^[Yy]$ ]] || { echo "  Aborted."; exit 0; }
+    fi
+  else
+    echo "  ⚠ Could not verify cache status — proceeding anyway"
+  fi
+fi
+
+echo ""
+read -rp "  Apply this combination? [y/N]: " confirm
+[[ "$confirm" =~ ^[Yy]$ ]] || { echo "  Aborted."; exit 0; }
+
+# ============================================================
+# SCHEDULER SWITCH
+# ============================================================
+
+apply_scheduler() {
+  local sched="$1"
+  echo ""
+  echo "  → Applying scheduler: $sched"
+
+  if [[ "$sched" == "none" || "$sched" == "bore" ]]; then
+    sudo systemctl stop scx_loader 2>/dev/null || \
+    sudo systemctl stop scx 2>/dev/null || true
+    [[ "$sched" == "bore" ]] \
+      && echo "  ✓ sched_ext stopped — BORE is now active (kernel built-in)" \
+      || echo "  ✓ sched_ext stopped — stock EEVDF is now active"
+  else
+    if systemctl list-unit-files scx_loader.service &>/dev/null; then
+      sudo systemctl stop scx_loader 2>/dev/null || true
+      sudo scx_loader "$sched" &>/dev/null &
+      sleep 1
+      echo "  ✓ $sched loaded via scx_loader"
+    elif systemctl list-unit-files scx.service &>/dev/null; then
+      sudo systemctl stop scx 2>/dev/null || true
+      sudo systemctl set-environment SCX_SCHEDULER="$sched"
+      sudo systemctl start scx
+      echo "  ✓ $sched loaded via scx.service"
+    else
+      echo "  ✗ No scx service found — add 'programs.scx.enable = true;' to your config."
+    fi
+  fi
+}
+
+# ============================================================
+# CONFIG PATCHING
+# ============================================================
+
+write_kernel_line() {
+  local type="$1"
+  local attr="$2"
+
+  if grep -q 'linuxPackagesFor' "$CONFIG"; then
+    sed -i '/boot\.kernelPackages = pkgs\.linuxPackagesFor/{N;d}' "$CONFIG"
+  fi
+  sed -i '/boot\.kernelPackages = pkgs\./d' "$CONFIG"
+
+  if [[ "$type" == "cachyos" ]]; then
+    sed -i "/# KERNEL/a\\\\n  boot.kernelPackages = pkgs.linuxPackagesFor\n    nix-cachyos-kernel.hydraJobs.packages.x86_64-linux.${attr};" "$CONFIG"
+  else
+    sed -i "/# KERNEL/a\\\\n  boot.kernelPackages = pkgs.${attr};" "$CONFIG"
+  fi
+}
+
+# ============================================================
+# KERNEL SWITCH
+# ============================================================
+
+if $kernel_changed; then
+  echo ""
+  print_menu "Kernel changed — how do you want to apply it?" \
+    "Temp build   — rebuild now, revert config after (new kernel runs until next rebuild)" \
+    "Test + keep  — rebuild now, leave config changed (decide permanently later)" \
+    "Permanent    — rebuild now and commit to git"
+  build_choice=$(pick "Build mode" 3)
+
+  echo ""
+  echo "  → Patching configuration.nix..."
+  write_kernel_line "$selected_type" "$selected_kernel"
+  echo "  ✓ Patched"
+
+  BOOTED=$(readlink /run/booted-system)
+
+  echo "  → Rebuilding..."
+  cd "$REPO"
+  sudo NIX_CONFIG="experimental-features = nix-command flakes" \
+    nixos-rebuild switch --flake .#gaming
+
+  echo ""
+  echo "  === Package changes ==="
+  nix run nixpkgs#nvd -- diff "$BOOTED" /run/current-system || true
+
+  case $build_choice in
+    1)
+      echo ""
+      echo "  → Reverting config to $current_kernel..."
+      write_kernel_line "$current_type" "$current_kernel"
+      echo "  ✓ Config reverted. Running kernel stays as $selected_kernel until next rebuild."
+      ;;
+    2)
+      echo ""
+      echo "  ✓ Config left with $selected_kernel. Run 'nixkernel' again to change."
+      ;;
+    3)
+      git -C "$REPO" add "$CONFIG"
+      git -C "$REPO" commit -m "kernel: switch to $selected_kernel"
+      echo ""
+      echo "  ✓ Committed. $selected_kernel is now permanent."
+      ;;
+  esac
+else
+  echo ""
+  echo "  → Kernel unchanged, skipping rebuild."
+fi
+
+apply_scheduler "$selected_sched"
+
+# ============================================================
+# LOG
+# ============================================================
+
+timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+echo "$timestamp | kernel: $selected_kernel | scheduler: $selected_sched" >> "$LOG"
+echo ""
+echo "  → Logged to $LOG"
+echo ""
+echo "  Done."
+echo ""
