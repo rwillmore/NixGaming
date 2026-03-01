@@ -299,7 +299,7 @@
     nixie
     nixos-conf-editor.packages.${pkgs.system}.nixos-conf-editor
 
-    (pkgs.writeShellScriptBin "nixkernel" (builtins.readFile ../../../scripts/nixkernel))
+    (pkgs.writeShellScriptBin "nixkernel" (builtins.readFile ../../scripts/nixkernel))
 
     (makeDesktopItem {
       name = "leshade";
